@@ -8,7 +8,6 @@
         body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background-color: #f4f4f9; padding-bottom: 80px; }
         .header { background: #3b5998; color: white; padding: 15px; border-radius: 8px; margin-bottom: 15px; text-align: center; }
         
-        /* NUEVO: Diseño para la cajita de horarios */
         .info-retiro { background-color: #e2e8f0; color: #1e293b; padding: 12px; border-radius: 8px; margin-bottom: 20px; text-align: center; font-size: 14px; border: 1px solid #cbd5e1; }
         
         .producto { background: white; padding: 15px; margin-bottom: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); display: flex; flex-direction: column; }
@@ -480,7 +479,7 @@
             { id: 402, nombre: "Betún Líquido Virginia", precio: 2450 },
             { id: 403, nombre: "Pañal Adulto Cotidian G (20 Un)", precio: 13700, promo: { precio: 12990, cantidad: 3 } },
             { id: 404, nombre: "Pañal Adulto Cotidian M (20 Un)", precio: 13700, promo: { precio: 12990, cantidad: 3 } },
-            { id: 405, nombre: "Toalla Húmeda Care Up Adultos", precio: 3490, promo: { precio: 3190, cantidad: 2 } },
+            { id: 405, nombre: "Sabanilla Care Up (8 Un)", precio: 4990 },
             { id: 406, nombre: "Apósitos Incontinencia Leve (20 Un)", precio: 3850 },
             { id: 407, nombre: "Quitaesmalte Algabo", precio: 1250 }
         ];
@@ -498,11 +497,12 @@
                     </div>` 
                     : "";
                 
+                // AQUÍ ESTÁ LA MAGIA: Ahora busca la foto suelta sin la carpeta "img/"
                 lista.innerHTML += `
                     <div class="producto">
                         <div class="producto-arriba">
                             <div class="producto-izq">
-                                <img src="img/${prod.id}.jpg" class="foto-prod" onerror="this.style.display='none'">
+                                <img src="${prod.id}.jpg" class="foto-prod" onerror="this.style.display='none'">
                                 <div class="info-prod">
                                     <strong>${prod.nombre}</strong><br>
                                     <span class="precio-normal">Precio normal: $${prod.precio.toLocaleString('es-CL')} c/u</span>
