@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pedidos Mayoristas</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background-color: #f4f4f9; padding-bottom: 80px; }
+        .header { background: #3b5998; color: white; padding: 15px; border-radius: 8px; margin-bottom: 15px; text-align: center; }
+        
+        /* NUEVO: Diseño para la cajita de horarios */
+        .info-retiro { background-color: #e2e8f0; color: #1e293b; padding: 12px; border-radius: 8px; margin-bottom: 20px; text-align: center; font-size: 14px; border: 1px solid #cbd5e1; }
+        
+        .producto { background: white; padding: 15px; margin-bottom: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); display: flex; flex-direction: column; }
+        .producto-arriba { display: flex; justify-content: space-between; align-items: center; width: 100%; }
+        .producto-izq { display: flex; align-items: center; width: 65%; }
+        .foto-prod { width: 70px; height: 70px; object-fit: cover; border-radius: 6px; margin-right: 15px; background-color: #eee; border: 1px solid #ddd; }
+        
+        .info-prod { flex: 1; font-size: 15px; }
+        .precio-normal { color: #333; font-weight: bold; font-size: 16px; }
+        
+        .alerta-descuento { background-color: #fff3cd; color: #856404; border: 1px solid #ffeeba; padding: 8px 10px; border-radius: 5px; font-size: 13px; margin-top: 12px; display: block; width: 100%; box-sizing: border-box; }
+        
+        .controles { display: flex; align-items: center; gap: 8px; }
+        button { background-color: #3b5998; color: white; border: none; padding: 10px 14px; border-radius: 5px; font-weight: bold; font-size: 18px; cursor: pointer; }
+        .btn-restar { background-color: #6c757d; }
+        
+        .carrito-flotante { position: fixed; bottom: 0; left: 0; right: 0; background: #25D366; padding: 20px; text-align: center; color: white; font-size: 18px; font-weight: bold; cursor: pointer; box-shadow: 0 -2px 10px rgba(0,0,0,0.2); z-index: 999; }
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); padding: 20px; box-sizing: border-box; overflow-y: auto; z-index: 1000; }
+        .modal-content { background: white; padding: 20px; border-radius: 10px; max-width: 400px; margin: 20px auto; text-align: center; }
+        .datos-bancarios { background: #f0f0f0; padding: 15px; border-radius: 8px; text-align: left; font-size: 14px; margin: 15px 0; border-left: 4px solid #3b5998; }
+        input { box-sizing: border-box; font-size: 16px; width: 100%; padding: 12px; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 5px; }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h2 style="margin:0;">📦 Catálogo Mayorista</h2>
+        <p style="margin:5px 0 0 0; font-size: 14px;">El descuento por mayor se aplica automáticamente en el carrito</p>
+    </div>
+
+    <div class="info-retiro">
+        <strong>🕒 Horarios de Retiro:</strong><br>
+        Lunes a Viernes: 09:30 a 12:30 y 15:30 a 18:30<br>
+        Sábados: 10:30 a 13:30
+    </div>
+
+    <div id="lista-productos"></div>
+
+    <div class="carrito-flotante" onclick="abrirCheckout()">
+        🛒 Ver Pedido (<span id="total-items">0</span>) - $<span id="total-precio">0</span>
+    </div>
+
+    <div id="modal-checkout" class="modal">
+        <div class="modal-content">
+            <h3>🧾 Resumen de tu Pedido</h3>
+            <p>Ingresa tu nombre o el de tu local:</p>
+            <input type="text" id="nombre-cliente" placeholder="Ej: Minimarket El Sol">
+            
+            <div class="datos-bancarios">
+                <strong>💳 Instrucciones de Pago:</strong><br><br>
+                1. Revisa tu total: <b style="font-size: 18px; color: #25D366;">$<span id="modal-total">0</span></b><br><br>
+                2. Transfiere a:<br>
+                - <b>Banco BICE</b><br>
+                - Cuenta Corriente: 123456789<br>
+                - RUT: 76.xxx.xxx-x<br><br>
+                <strong>🕒 Recuerda nuestro horario:</strong><br>
+                Lun - Vie: 9:30 a 12:30 y 15:30 a 18:30<br>
+                Sáb: 10:30 a 13:30
+            </div>
+
+            <button style="background-color: #25D366; width: 100%; padding: 15px; font-size: 16px; margin-bottom: 10px;" onclick="enviarWhatsApp()">Enviar Pedido por WhatsApp</button>
+            <button style="background-color: #dc3545; width: 100%; padding: 15px; font-size: 16px;" onclick="cerrarCheckout()">Volver al Catálogo</button>
+        </div>
+    </div>
+
+    <script>
+        const productos = [
+            { id: 1, nombre: "Sardinas en Aceite Deyco", precio: 1000 },
+            { id: 2, nombre: "Jurel San José 425g", precio: 1890 },
+            { id: 3, nombre: "Jurel Misol", precio: 1090, promo: { precio: 990, cantidad: 3 } },
+            { id: 4, nombre: "Atún Desmenuzado Coliseo", precio: 650, promo: { precio: 590, cantidad: 3 } },
+            { id: 5, nombre: "Atún Lomitos Van Camp's", precio: 1590, promo: { precio: 1490, cantidad: 3 } },
+            { id: 6, nombre: "Lomos de Jurel Ahumado San José", precio: 900 },
+            { id: 7, nombre: "Jurel en Salsa de Tomate Atlas", precio: 1100 },
+            { id: 8, nombre: "Atún Lomitos San José", precio: 1290 },
+            { id: 9, nombre: "Surtido de Mariscos San José 425g", precio: 3490 },
+            { id: 10, nombre: "Choritos Antartic 190g", precio: 990 },
+            { id: 11, nombre: "Aceite Mysol 900ml", precio: 1590 },
+            { id: 12, nombre: "Aceite de Oliva 500ml D'Oliva", precio: 3890 },
+            { id: 13, nombre: "Aceite Miraflores 900ml", precio: 2650 },
+            { id: 14, nombre: "Aceite Natura 900ml", precio: 2650 },
+            { id: 15, nombre: "Aceite Oliva 250ml Olio", precio: 3890 },
+            { id: 16, nombre: "Sabanilla Care Up (8 Un)", precio: 4990 },
+            { id: 17, nombre: "Jugo Limón 500ml Traverso", precio: 990 },
+            { id: 18, nombre: "Vinagre de Manzana 500ml Traverso", precio: 1590, promo: { precio: 1490, cantidad: 3 } },
+            { id: 19, nombre: "Vinagre Rosado 500ml Traverso", precio: 990 },
+            { id: 20, nombre: "Vinagre Vino Blanco 500ml Traverso", precio: 990 },
+            { id: 21, nombre: "Vinagre 500ml Don Juan", precio: 790, promo: { precio: 750, cantidad: 3 } },
+            { id: 22, nombre: "Jugo de Limón 500ml Don Juan", precio: 790, promo: { precio: 750, cantidad: 3 } },
+            { id: 23, nombre: "Salsa de Soya Traverso", precio: 1790 },
+            { id: 24, nombre: "Caldos Maggi 12 Tabletas", precio: 1550 },
+            { id: 25, nombre: "Sopa Instantánea Misol", precio: 600, promo: { precio: 500, cantidad: 3 } },
+            { id: 26, nombre: "Maruchan Variedades", precio: 1090 },
+            { id: 27, nombre: "Salsa Tomate Malloa", precio: 500, promo: { precio: 460, cantidad: 3 } },
+            { id: 28, nombre: "Salsa Tomate Doña Clara", precio: 450, promo: { precio: 399, cantidad: 3 } },
+            { id: 29, nombre: "Salsa de Tomate Misol", precio: 350, promo: { precio: 299, cantidad: 3 } },
+            { id: 30, nombre: "Cabellos de Ángel / Capellini Carozzi", precio: 890 },
+            { id: 31, nombre: "Rigatoni / Mascarroni Carozzi", precio: 890 },
+            { id: 32, nombre: "Corbatas / Espirales Carozzi", precio: 890 },
+            { id: 33, nombre: "Tallarines N87 / 5 Carozzi", precio: 890 },
+            { id: 34, nombre: "Spaghetti / Tallarines Misol", precio: 550, promo: { precio: 498, cantidad: 3 } },
+            { id: 35, nombre: "Fideos Misol Espirales/Corbatas", precio: 550, promo: { precio: 498, cantidad: 3 } },
+            { id: 36, nombre: "Arroz Tucapel 900g Grado 2", precio: 1000 },
+            { id: 37, nombre: "Arroz Los Chinos 1kg Grado 2", precio: 1690, promo: { precio: 1490, cantidad: 3 } },
+            { id: 38, nombre: "Arroz Valle de Oro 1kg Grado 2", precio: 1790, promo: { precio: 1690, cantidad: 3 } },
+            { id: 39, nombre: "Arroz Bonanza 1kg Grado 2", precio: 990, promo: { precio: 899, cantidad: 10 } },
+            { id: 40, nombre: "Arroz Misol 1kg Grado 1", precio: 990, promo: { precio: 899, cantidad: 10 } },
+            { id: 41, nombre: "Lentejas Bonanza 1kg", precio: 2690 },
+            { id: 42, nombre: "Poroto Hallado Aruba 1kg", precio: 2600 },
+            { id: 43, nombre: "Arvejas Verdes Partidas Bonanza", precio: 2990 },
+            { id: 44, nombre: "Leche Condensada 397ml Nestlé", precio: 1590, promo: { precio: 1490, cantidad: 3 } },
+            { id: 45, nombre: "Crema de Leche Nestlé 157g", precio: 1090, promo: { precio: 1050, cantidad: 3 } },
+            { id: 46, nombre: "Champiñones Laminados Esmeralda", precio: 1290 },
+            { id: 47, nombre: "Palmitos Esmeralda", precio: 2790 },
+            { id: 48, nombre: "Durazno en Mitades 425g Esmeralda", precio: 1000 },
+            { id: 49, nombre: "Sal Cocina 1kg Lobos", precio: 600, promo: { precio: 550, cantidad: 3 } },
+            { id: 50, nombre: "Sal Parrillera 750g Lobos", precio: 1450 },
+            { id: 51, nombre: "Azúcar La Teresina 1kg", precio: 990, promo: { precio: 899, cantidad: 3 } },
+            { id: 52, nombre: "Azúcar La Patrona 1kg", precio: 1090 },
+            { id: 53, nombre: "Stevia 250mg Iansa", precio: 2390 },
+            { id: 54, nombre: "Azúcar Iansa 1kg", precio: 1690, promo: { precio: 1490, cantidad: 3 } },
+            { id: 55, nombre: "Azúcar Flor 500mg Iansa", precio: 1200, promo: { precio: 1090, cantidad: 3 } },
+            { id: 56, nombre: "Azúcar Rubia 500mg Iansa", precio: 1350, promo: { precio: 1180, cantidad: 3 } },
+            { id: 57, nombre: "Yerba Mate CBSé Variedades 500g", precio: 2550 },
+            { id: 58, nombre: "Yerba Mate Cruz de Malta 500mg", precio: 2300 },
+            { id: 59, nombre: "Yerba Mate Verde Flor Variedades 500mg", precio: 2450 },
+            { id: 60, nombre: "Té Orjas 30g", precio: 1450 },
+            { id: 61, nombre: "Té Supremo Ceylan Premium", precio: 4750 },
+            { id: 62, nombre: "Té Club", precio: 2590 },
+            { id: 63, nombre: "Té Negro Emblem Tea", precio: 2290 },
+            { id: 64, nombre: "Té Supremo Brasil", precio: 2590 },
+            { id: 65, nombre: "Té de Hierbas Supremo", precio: 1450 },
+            { id: 66, nombre: "Nescafé Gold Descafeinado 170g", precio: 6750 },
+            { id: 67, nombre: "Café Ecco Polvo", precio: 3100 },
+            { id: 68, nombre: "Nescafé Fina Selección 200g", precio: 9990 },
+            { id: 69, nombre: "Café Monterrey 170g Polvo", precio: 4790 },
+            { id: 70, nombre: "Nescafé Tradición 170g Polvo", precio: 5990 },
+            { id: 71, nombre: "Nescafé Tradición 400g Polvo", precio: 11950 },
+            { id: 72, nombre: "Nescafé Decaf 170g Polvo", precio: 6990 },
+            { id: 73, nombre: "Nescafé Dolca Polvo", precio: 4990 },
+            { id: 74, nombre: "Nescafé Capuccino Polvo", precio: 2990 },
+            { id: 75, nombre: "Nescafé Vainilla Latte Polvo", precio: 2990 },
+            { id: 76, nombre: "Nescafé Moka Polvo", precio: 2990 },
+            { id: 77, nombre: "Nescafé Doble Choco Moka Polvo", precio: 2990 },
+            { id: 78, nombre: "Harina 25kg Monteverde", precio: 17550 },
+            { id: 79, nombre: "Harina 25kg Uso Doméstico", precio: 16990 },
+            { id: 80, nombre: "Harina Yanine 5kg", precio: 4700 },
+            { id: 81, nombre: "Harina Yanine 1kg", precio: 990 },
+            { id: 82, nombre: "Harina Integral 1kg Yanine", precio: 1050 },
+            { id: 83, nombre: "Harina Yanine 3kg", precio: 2690 },
+            { id: 84, nombre: "Chancaca Deliciosa", precio: 990, promo: { precio: 950, cantidad: 3 } },
+            { id: 85, nombre: "Levadura Instantánea Fortaleza", precio: 2450 },
+            { id: 86, nombre: "Levadura Saf-Instant 500g", precio: 3250 },
+            { id: 87, nombre: "Semolina Gruesa", precio: 1950 },
+            { id: 88, nombre: "Polvo de Hornear 200g Imperial", precio: 2300 },
+            { id: 89, nombre: "Polvo de Hornear 100g Imperial", precio: 990 },
+            { id: 90, nombre: "Maicena 1kg", precio: 1950 },
+            { id: 91, nombre: "Leche Colun Entera / Semidescremada 1L", precio: 1290 },
+            { id: 92, nombre: "Leche Entera 1L Purísima", precio: 990 },
+            { id: 93, nombre: "Leche Colun Sin Lactosa / Chocolate 1L", precio: 1390 },
+            { id: 94, nombre: "Pack 6 Leche Colun", precio: 2590 },
+            { id: 95, nombre: "Pack 6 Leche Surlat", precio: 1990 },
+            { id: 96, nombre: "Milo 1kg", precio: 7690 },
+            { id: 97, nombre: "Milo 700g", precio: 6750 },
+            { id: 98, nombre: "Leche Nido Entera 1350g", precio: 11990 },
+            { id: 99, nombre: "Leche Nido Buen Día", precio: 5490 },
+            { id: 100, nombre: "Leche Nido Formato Conveniente", precio: 8990 },
+            { id: 101, nombre: "Leche Entera 400g Colun", precio: 3390 },
+            { id: 102, nombre: "Leche Entera 900g Colun", precio: 7390 },
+            { id: 103, nombre: "Leche Condensada Sur", precio: 1590 },
+            { id: 104, nombre: "Leche Evaporada Ideal", precio: 1750 },
+            { id: 105, nombre: "Avena Monteverde 900g", precio: 1290 },
+            { id: 106, nombre: "Avena Vivo 700g", precio: 2050 },
+            { id: 107, nombre: "Avena Quaker 700g", precio: 2400 },
+            { id: 108, nombre: "Cereal Trix", precio: 1790 },
+            { id: 109, nombre: "Cereales Mono 230g", precio: 1790 },
+            { id: 110, nombre: "Cereales Chocapic 280g", precio: 1790 },
+            { id: 111, nombre: "Snack Lays Variedades 250g", precio: 2500 },
+            { id: 112, nombre: "Snack Lays Variedades 200g", precio: 2200 },
+            { id: 113, nombre: "Snack Lays Variedades 100g", precio: 1500 },
+            { id: 114, nombre: "Snack Lays Variedades 60g", precio: 1000 },
+            { id: 115, nombre: "Doritos Dinamita", precio: 1100 },
+            { id: 116, nombre: "Maní Salado Evercrisp", precio: 1100 },
+            { id: 117, nombre: "Mayonesa Hellmann's 700g", precio: 1990 },
+            { id: 118, nombre: "Mayonesa Supreme", precio: 3590 },
+            { id: 119, nombre: "Mayonesa Kraft", precio: 5890 },
+            { id: 120, nombre: "Salsa de Ají 500 Traverso", precio: 1090, promo: { precio: 990, cantidad: 3 } },
+            { id: 121, nombre: "Ketchup 1K Traverso", precio: 2150 },
+            { id: 122, nombre: "Mostaza 1K Traverso", precio: 1990 },
+            { id: 123, nombre: "Papas Kryzpo", precio: 700 },
+            { id: 124, nombre: "Papas Fritas Tarro Lays", precio: 900 },
+            { id: 125, nombre: "Papas Fritas Tarro Variedades Lays Stax", precio: 2650 },
+            { id: 126, nombre: "Galleta Costa Variedades", precio: 860, promo: { precio: 770, cantidad: 3 } },
+            { id: 127, nombre: "Galletas Nik Variedades", precio: 450, promo: { precio: 420, cantidad: 3 } },
+            { id: 128, nombre: "Paleta Labios", precio: 1650, promo: { precio: 1550, cantidad: 3 } },
+            { id: 129, nombre: "Galleta Tritón Variedades", precio: 650 },
+            { id: 130, nombre: "Galletas Frac Variedades", precio: 650 },
+            { id: 131, nombre: "Dulces Frugelé 430g", precio: 2590 },
+            { id: 132, nombre: "Galletas Mini Costa 35g Variedades", precio: 270 },
+            { id: 133, nombre: "Galletas McKay", precio: 1350, promo: { precio: 1250, cantidad: 3 } },
+            { id: 134, nombre: "Laguito / Gansito / Rayita", precio: 700 },
+            { id: 135, nombre: "Mankeke", precio: 800 },
+            { id: 136, nombre: "Rollo", precio: 600 },
+            { id: 137, nombre: "TKCH", precio: 600 },
+            { id: 138, nombre: "Alfi", precio: 700 },
+            { id: 139, nombre: "Takis 56g", precio: 1000 },
+            { id: 140, nombre: "Takis 113g", precio: 1500 },
+            { id: 141, nombre: "Twistos", precio: 1500 },
+            { id: 142, nombre: "Pinguinos", precio: 900 },
+            { id: 143, nombre: "Dindon", precio: 550 },
+            { id: 144, nombre: "Jugos Jumex 335 ml", precio: 890, promo: { precio: 850, cantidad: 3 } },
+            { id: 145, nombre: "Jugo en Polvo Livean Variedades (Caja 10u)", precio: 1690 },
+            { id: 146, nombre: "Jugo en Polvo Zuko Variedades (Caja 10u)", precio: 1690 },
+            { id: 147, nombre: "Jugo en Polvo Sprim Variedades (Caja 10u)", precio: 1690 },
+            { id: 148, nombre: "Jugos Bombillin Watts Variedades (Pack 6u)", precio: 1490 },
+            { id: 149, nombre: "Agua Cachantun Con/Sin Gas 500ml", precio: 490 },
+            { id: 150, nombre: "Pack 12 Agua Cachantun Con/Sin Gas 500ml", precio: 4650 },
+            { id: 151, nombre: "Agua Vital Con/Sin Gas 500ml", precio: 590 },
+            { id: 152, nombre: "Agua Vital Con/Sin Gas 1.6L", precio: 790 },
+            { id: 153, nombre: "Pack 12 Agua Vital Con/Sin Gas 500ml", precio: 5500 },
+            { id: 154, nombre: "Bebidas CCU Variedades 3L", precio: 1990 },
+            { id: 155, nombre: "Bebidas CCU 350ml", precio: 750, promo: { precio: 690, cantidad: 3 } },
+            { id: 156, nombre: "Bebidas 2.5L Variedades", precio: 2250, promo: { precio: 1990, cantidad: 6 } },
+            { id: 157, nombre: "Vienesas PF 20U", precio: 2990 },
+            { id: 158, nombre: "Queso La Vaquita 400g", precio: 3500, promo: { precio: 3100, cantidad: 3 } },
+            { id: 159, nombre: "Queso Frutillar 500g", precio: 3990 },
+            { id: 160, nombre: "Queso Rayado 40g Colun", precio: 890 },
+            { id: 161, nombre: "Yogurt Colun (Pack 4 unidades)", precio: 990 },
+            { id: 162, nombre: "Yogurt Los Alerces (Pack 4 unidades)", precio: 890 },
+            { id: 163, nombre: "Flan Colun (Pack 4 unidades)", precio: 1390 },
+            { id: 164, nombre: "Jalea Colun (Pack 4 unidades)", precio: 990 },
+            { id: 165, nombre: "Queso Crema Frutillar", precio: 1990 },
+            { id: 166, nombre: "Mantequilla 100g Quillayes", precio: 1100 },
+            { id: 167, nombre: "Mantequilla 250g Colun", precio: 2590, promo: { precio: 2490, cantidad: 2 } },
+            { id: 168, nombre: "Paté PF Sabor Pollo/Jamón/Ternera", precio: 590 },
+            { id: 169, nombre: "Queso Crema Colun", precio: 750, promo: { precio: 690, cantidad: 2 } },
+            { id: 170, nombre: "Salame PF 75g", precio: 1000 },
+            { id: 171, nombre: "Dulce de Membrillo Perelló", precio: 890, promo: { precio: 830, cantidad: 3 } },
+            { id: 172, nombre: "Manjar Colun 200g", precio: 1190, promo: { precio: 1090, cantidad: 3 } },
+            { id: 173, nombre: "Manjar Colun 400g", precio: 1990 },
+            { id: 174, nombre: "Manjar 1KL Nestlé/Colun", precio: 3990 },
+            { id: 175, nombre: "Pan Integral / Blanco Marcelo", precio: 1990 },
+            { id: 176, nombre: "Pan Hamburguesa Marcelo", precio: 2300 },
+            { id: 177, nombre: "Pan de Completo Marcelo", precio: 1990 },
+            { id: 178, nombre: "Chorizo PF 1kg", precio: 3990 },
+            { id: 179, nombre: "Casata 1L Variedades Savory", precio: 2690 },
+            { id: 180, nombre: "Mega Almendras", precio: 1690 },
+            { id: 181, nombre: "Mega Frambuesa", precio: 1690 },
+            { id: 182, nombre: "Mega Shane-Nuss", precio: 1690 },
+            { id: 183, nombre: "Mega KitKat", precio: 1690 },
+            { id: 184, nombre: "Danky", precio: 1650 },
+            { id: 185, nombre: "Crazy", precio: 1290 },
+            { id: 186, nombre: "Cola de Tigre", precio: 550, promo: { precio: 495, cantidad: 2 } },
+            { id: 187, nombre: "Egocéntrico / Chocolito", precio: 950 },
+            { id: 188, nombre: "Casata Savory Egocéntrico/Chocolito", precio: 2790 },
+            { id: 189, nombre: "Casata Trendy 2.5L Variedades", precio: 4950 },
+            { id: 190, nombre: "Lasaña Precocida Lucchetti", precio: 1990 },
+            { id: 191, nombre: "Esponja Acanalada", precio: 180, promo: { precio: 150, cantidad: 3 } },
+            { id: 192, nombre: "Virutilla Redonda", precio: 180, promo: { precio: 150, cantidad: 3 } },
+            { id: 193, nombre: "Virutilla Dorada", precio: 490, promo: { precio: 350, cantidad: 3 } },
+            { id: 194, nombre: "Virutilla Plateada", precio: 300, promo: { precio: 220, cantidad: 3 } },
+            { id: 195, nombre: "Fósforos Talismán (Paquete 10U)", precio: 490, promo: { precio: 380, cantidad: 3 } },
+            { id: 196, nombre: "Paño Esponja Dom", precio: 990 },
+            { id: 197, nombre: "Lavalozas Be Winnex", precio: 1000 },
+            { id: 198, nombre: "Lavalozas Wyn 750ml", precio: 1390 },
+            { id: 199, nombre: "Lavalozas Wyn 1500ml", precio: 2250 },
+            { id: 200, nombre: "Lavalozas Mr Pro", precio: 790 },
+            { id: 201, nombre: "Lavalozas Fuzol 1L", precio: 1290 },
+            { id: 202, nombre: "Lavalozas Quix 500ml", precio: 1090 },
+            { id: 203, nombre: "Lavalozas Quix 750ml", precio: 1790 },
+            { id: 204, nombre: "Lavalozas Quix 1500ml", precio: 2790 },
+            { id: 205, nombre: "Cif Crema Variedades", precio: 1490 },
+            { id: 206, nombre: "Paño Amarillo", precio: 180, promo: { precio: 150, cantidad: 3 } },
+            { id: 207, nombre: "Escobillón", precio: 1990 },
+            { id: 208, nombre: "Paño Microfibra", precio: 490, promo: { precio: 390, cantidad: 3 } },
+            { id: 209, nombre: "Trapero Microfibra", precio: 990 },
+            { id: 210, nombre: "Virutilla Piso", precio: 990 },
+            { id: 211, nombre: "Trapero Húmedo Be Winnex", precio: 1890 },
+            { id: 212, nombre: "Nova Protect", precio: 2490 },
+            { id: 213, nombre: "Trapero Húmedo Doña Gaby", precio: 1100 },
+            { id: 214, nombre: "Abrillantador Piso Flotante", precio: 2250 },
+            { id: 215, nombre: "Nova Megarollo", precio: 1650 },
+            { id: 216, nombre: "Nova 70M", precio: 2650 },
+            { id: 217, nombre: "Nova Ultra (Manga 12 Pack)", precio: 11880 },
+            { id: 218, nombre: "Suan 300 Servilletas", precio: 1290, promo: { precio: 1190, cantidad: 3 } },
+            { id: 219, nombre: "Abolengo 3 Rollos (Manga 8 Unidades)", precio: 6990 },
+            { id: 220, nombre: "Abolengo 100M (Manga 6 Unidades)", precio: 15540 },
+            { id: 221, nombre: "Óptimo 100M", precio: 2790 },
+            { id: 222, nombre: "Florax", precio: 1290 },
+            { id: 223, nombre: "Elite Deco (Manga 10 Pack)", precio: 22900 },
+            { id: 224, nombre: "Elite Profesional (Manga 8 Pack)", precio: 10900 },
+            { id: 225, nombre: "Servilleta Elite 200U", precio: 1450, promo: { precio: 1330, cantidad: 3 } },
+            { id: 226, nombre: "Servilleta Elite 50U", precio: 490, promo: { precio: 450, cantidad: 3 } },
+            { id: 227, nombre: "Cloro Clorinda 1L", precio: 1100 },
+            { id: 228, nombre: "Cloro Clorinda 2kg", precio: 2150 },
+            { id: 229, nombre: "Quitamanchas Mr Pro", precio: 1190 },
+            { id: 230, nombre: "Igenix Limpiador", precio: 1190 },
+            { id: 231, nombre: "Igenix Cloro Gel 900ml Variedades", precio: 1290 },
+            { id: 232, nombre: "Cloro Ropa Color Clorinda", precio: 2500 },
+            { id: 233, nombre: "Removedor de Manchas Be Winnex", precio: 3990 },
+            { id: 234, nombre: "Toallas Desinfectantes Igenix", precio: 1650 },
+            { id: 235, nombre: "Limpia Vidrios Wyn", precio: 2590 },
+            { id: 236, nombre: "Desengrasante Wyn", precio: 2590 },
+            { id: 237, nombre: "Lustra Muebles Virginia", precio: 1850 },
+            { id: 238, nombre: "Guantes Multiuso Talla M-L Be Winnex", precio: 750 },
+            { id: 239, nombre: "Bolsa Basura Virutex 50x55", precio: 550, promo: { precio: 490, cantidad: 3 } },
+            { id: 240, nombre: "Bolsa Basura Virutex 50x70", precio: 650, promo: { precio: 590, cantidad: 3 } },
+            { id: 241, nombre: "Bolsa Basura Virutex 70x90", precio: 1090, promo: { precio: 990, cantidad: 3 } },
+            { id: 242, nombre: "Bolsa Basura Virutex 80x110", precio: 1590, promo: { precio: 1490, cantidad: 3 } },
+            { id: 243, nombre: "Bolsa Basura Impeke 50x70", precio: 590, promo: { precio: 550, cantidad: 3 } },
+            { id: 244, nombre: "Bolsa Basura Impeke 70x90", precio: 890, promo: { precio: 850, cantidad: 3 } },
+            { id: 245, nombre: "Bolsa Basura Impeke 80x110", precio: 1350, promo: { precio: 1290, cantidad: 3 } },
+            { id: 246, nombre: "Bolsa Tipo Ziploc 18x14cm", precio: 1650 },
+            { id: 247, nombre: "Bolsa Tipo Ziploc 18x20cm", precio: 1650 },
+            { id: 248, nombre: "Pétalos Desmaquillantes Care Up", precio: 990 },
+            { id: 249, nombre: "Jabón Lux", precio: 500 },
+            { id: 250, nombre: "Jabón Le Sancy", precio: 990, promo: { precio: 900, cantidad: 3 } },
+            { id: 251, nombre: "Jabón Dove", precio: 1090, promo: { precio: 990, cantidad: 3 } },
+            { id: 252, nombre: "Desodorante Gillette Gel", precio: 3790 },
+            { id: 253, nombre: "Desodorante Gillette Barra", precio: 3790 },
+            { id: 254, nombre: "Desodorante Speed Stick Gel", precio: 3790 },
+            { id: 255, nombre: "Desodorante Speed Stick Barra", precio: 2450 },
+            { id: 256, nombre: "Desodorante Nivea Spray Hombre Variedades", precio: 2390 },
+            { id: 257, nombre: "Desodorante Rexona Hombre Spray Variedades", precio: 2390 },
+            { id: 258, nombre: "Desodorante Rexona Hombre Clinical Crema", precio: 3490 },
+            { id: 259, nombre: "Desodorante Rexona Hombre Clinical Spray", precio: 3790 },
+            { id: 260, nombre: "Desodorante Old Spice Spray Variedades", precio: 2550 },
+            { id: 261, nombre: "Desodorante Old Spice Barra", precio: 2450 },
+            { id: 262, nombre: "Desodorante Axe Variedades", precio: 1990 },
+            { id: 263, nombre: "Desodorante Dove Spray Hombre Variedades", precio: 2390 },
+            { id: 264, nombre: "Desodorante Dove Barra Hombre Variedades", precio: 2450 },
+            { id: 265, nombre: "Rexona Barra Mujer", precio: 2450 },
+            { id: 266, nombre: "Rexona Spray Mujer", precio: 2390 },
+            { id: 267, nombre: "Rexona Clinical Mujer", precio: 3790 },
+            { id: 268, nombre: "Desodorante Dove Spray Mujer", precio: 2390 },
+            { id: 269, nombre: "Desodorante Dove Barra Mujer", precio: 2450 },
+            { id: 270, nombre: "Desodorante Dove Rolon Mujer", precio: 1890 },
+            { id: 271, nombre: "Desodorante Secret Barra", precio: 2450 },
+            { id: 272, nombre: "Desodorante Secret Spray", precio: 2990 },
+            { id: 273, nombre: "Desodorante Nivea Spray Mujer Variedades", precio: 2390 },
+            { id: 274, nombre: "Desodorante Nivea Rolon Variedades Mujer", precio: 2450 },
+            { id: 275, nombre: "Desodorante Etiquet Rolon", precio: 1550 },
+            { id: 276, nombre: "Desodorante Gel Lady Speed Stick", precio: 3790 },
+            { id: 277, nombre: "Desodorante Barra Lady Speed Stick", precio: 2450 },
+            { id: 278, nombre: "Shampoo Dove Variedades", precio: 2390 },
+            { id: 279, nombre: "Shampoo Ballerina Variedades", precio: 1450, promo: { precio: 1280, cantidad: 3 } },
+            { id: 280, nombre: "Acondicionador Ballerina Variedades", precio: 1450, promo: { precio: 1280, cantidad: 3 } },
+            { id: 281, nombre: "Pantene Variedades 400ml", precio: 2990 },
+            { id: 282, nombre: "Acondicionador Familand Variedades", precio: 1690 },
+            { id: 283, nombre: "Shampoo Familand Variedades", precio: 1690 },
+            { id: 284, nombre: "Shampoo Head & Shoulders 375g Variedades", precio: 3390 },
+            { id: 285, nombre: "Shampoo Herbal Essences Variedades", precio: 3950 },
+            { id: 286, nombre: "Shampoo/Acondicionador Sedal", precio: 1650 },
+            { id: 287, nombre: "Shampoo Elvive Variedades", precio: 2990 },
+            { id: 288, nombre: "Shampoo Pantene 200ml", precio: 1250 },
+            { id: 289, nombre: "Toallas Ladysoft Ultradelgada Rosado (Pack 16)", precio: 1790 },
+            { id: 290, nombre: "Toallas Ladysoft Ultradelgada Rosado (8 Un)", precio: 990 },
+            { id: 291, nombre: "Toallas Ladysoft Ultradelgada Morado (8 Un)", precio: 990 },
+            { id: 292, nombre: "Toallas Ladysoft Normal", precio: 770 },
+            { id: 293, nombre: "Toallas Ladysoft Nocturna Normal (7 Un)", precio: 950 },
+            { id: 294, nombre: "Toallas Ladysoft Ultradelgada Morado (Pack 16)", precio: 1690 },
+            { id: 295, nombre: "Toallas Ladysoft Nocturna Ultradelgada (14 Un)", precio: 1990 },
+            { id: 296, nombre: "Protector Diario Ladysoft", precio: 590 },
+            { id: 297, nombre: "Protector Diario Ladysoft 20U", precio: 790 },
+            { id: 298, nombre: "Protector Diario Ladysoft 40U", precio: 1150 },
+            { id: 299, nombre: "Protector Diario Fiorella 100U", precio: 2350 },
+            { id: 300, nombre: "Cepillo de Dientes Niños", precio: 650, promo: { precio: 550, cantidad: 3 } },
+            { id: 301, nombre: "Cepillo de Dientes Mediano", precio: 650, promo: { precio: 550, cantidad: 3 } },
+            { id: 302, nombre: "Cepillo de Dientes Suave", precio: 650, promo: { precio: 550, cantidad: 3 } },
+            { id: 303, nombre: "Pack 3 Pasta de Dientes Pepsodent", precio: 2250 },
+            { id: 304, nombre: "Pasta de Dientes Colgate", precio: 990 },
+            { id: 305, nombre: "Pasta de Dientes Colgate Luminous White", precio: 2850 },
+            { id: 306, nombre: "Pasta de Dientes Fresh Up", precio: 750 },
+            { id: 307, nombre: "Gel Fijador VO5", precio: 3550 },
+            { id: 308, nombre: "Toallas Desmaquillantes Mia", precio: 950 },
+            { id: 309, nombre: "Cotonitos Reche 200U", precio: 1150 },
+            { id: 310, nombre: "Talco Algabo 100g", precio: 990 },
+            { id: 311, nombre: "Talco Algabo 200g", precio: 1250 },
+            { id: 312, nombre: "Shampoo Simonds", precio: 2850 },
+            { id: 313, nombre: "Colonia Babyland", precio: 1590 },
+            { id: 314, nombre: "Shampoo/Acondicionador Simonds", precio: 2850 },
+            { id: 315, nombre: "Toallas Húmedas Tutte", precio: 1490, promo: { precio: 1290, cantidad: 3 } },
+            { id: 316, nombre: "Toallas Húmedas Bou", precio: 990 },
+            { id: 317, nombre: "Toallas Húmedas Babysec 70U", precio: 1300, promo: { precio: 1190, cantidad: 3 } },
+            { id: 318, nombre: "Toallas Húmedas Babysec 45U", precio: 990, promo: { precio: 890, cantidad: 3 } },
+            { id: 319, nombre: "Pañales Babysec P", precio: 3390, promo: { precio: 3190, cantidad: 3 } },
+            { id: 320, nombre: "Pañales Babysec M", precio: 3390, promo: { precio: 3190, cantidad: 3 } },
+            { id: 321, nombre: "Pañales Babysec G", precio: 3390, promo: { precio: 3190, cantidad: 3 } },
+            { id: 322, nombre: "Pañales Babysec XG", precio: 3390, promo: { precio: 3190, cantidad: 3 } },
+            { id: 323, nombre: "Pañales Babysec XXG", precio: 3390, promo: { precio: 3190, cantidad: 3 } },
+            { id: 324, nombre: "Confort 20M (Manga 24 Rollos)", precio: 5990 },
+            { id: 325, nombre: "Elite 50M (Manga 32 Rollos)", precio: 18990 },
+            { id: 326, nombre: "Suan 20M (Manga 48 Rollos)", precio: 10750 },
+            { id: 327, nombre: "Suan 20M (Manga 24 Rollos)", precio: 5790 },
+            { id: 328, nombre: "Confort 20M (Manga 48 Rollos)", precio: 11900 },
+            { id: 329, nombre: "Confort 50M (Manga 32 Rollos)", precio: 18500 },
+            { id: 330, nombre: "Noble 23M (Manga 48 Rollos)", precio: 10900 },
+            { id: 331, nombre: "Noble 22M (Manga 60 Rollos)", precio: 11900 },
+            { id: 332, nombre: "Pastilla Inodoro Variedades Be Winnex", precio: 750 },
+            { id: 333, nombre: "Pastilla Estanque Excell", precio: 1990 },
+            { id: 334, nombre: "Pastilla Estanque Igenix", precio: 2950 },
+            { id: 335, nombre: "Detergente Polvo Be Winnex 2.7kg", precio: 3500 },
+            { id: 336, nombre: "Detergente Polvo Be Winnex 800g", precio: 990 },
+            { id: 337, nombre: "Detergente para Diluir Clean", precio: 1990 },
+            { id: 338, nombre: "Detergente para Diluir Drive", precio: 4990 },
+            { id: 339, nombre: "Detergente Igenix 3L", precio: 3998 },
+            { id: 340, nombre: "Detergente Matic 5L", precio: 1790 },
+            { id: 341, nombre: "Rinso para Diluir", precio: 2990 },
+            { id: 342, nombre: "Detergente Ariel 700g", precio: 1990 },
+            { id: 343, nombre: "Detergente Ariel 3L", precio: 6990 },
+            { id: 344, nombre: "Detergente Virginia 800g", precio: 990 },
+            { id: 345, nombre: "Detergente Virginia 2.5kg", precio: 3500 },
+            { id: 346, nombre: "Detergente Omo 8.7kg", precio: 18990 },
+            { id: 347, nombre: "Omo para Diluir", precio: 3890 },
+            { id: 348, nombre: "Omo para Diluir Hipoalergénico", precio: 3990 },
+            { id: 349, nombre: "Omo Ultrapower 2.7kg", precio: 5790 },
+            { id: 350, nombre: "Omo con Bicarbonato 2.7kg", precio: 5250 },
+            { id: 351, nombre: "Omo con Bicarbonato 800g", precio: 1750 },
+            { id: 352, nombre: "Omo Ultrapower 800g", precio: 1890 },
+            { id: 353, nombre: "Biofrescura 800g", precio: 1390 },
+            { id: 354, nombre: "Biofrescura 2.5kg", precio: 4150 },
+            { id: 355, nombre: "Omo Aloe Vera 2.7kg", precio: 5790 },
+            { id: 356, nombre: "Detergente Mr Pro 5kg", precio: 5200, promo: { precio: 4700, cantidad: 3 } },
+            { id: 357, nombre: "Jabón Popeye 170g", precio: 1150 },
+            { id: 358, nombre: "Jabón Popeye Verde", precio: 990 },
+            { id: 359, nombre: "Suavizante Fuzol", precio: 1290 },
+            { id: 360, nombre: "Suavizante Downy", precio: 2590 },
+            { id: 361, nombre: "Insecticida Killer Variedades 390cc", precio: 2250 },
+            { id: 362, nombre: "Insecticida Killer Variedades 580cc", precio: 2890 },
+            { id: 363, nombre: "Lysoform 380g", precio: 2990 },
+            { id: 364, nombre: "Raid Variedades", precio: 3990 },
+            { id: 365, nombre: "Desodorante Ambiental Arom", precio: 1390 },
+            { id: 366, nombre: "Desodorante Ambiental Winnex 400ml", precio: 1190 },
+            { id: 367, nombre: "Desodorante Ambiental Winnex 250ml", precio: 1890 },
+            { id: 368, nombre: "Cera Crema Be Winnex", precio: 990 },
+            { id: 369, nombre: "Cera Brillina Tierra Color", precio: 1490 },
+            { id: 370, nombre: "Cera Brillina Amarilla", precio: 1490 },
+            { id: 371, nombre: "Cera Brillina Roja", precio: 1490 },
+            { id: 372, nombre: "Pintura para Piso Mr Pro", precio: 1690 },
+            { id: 373, nombre: "Papel Aluminio 4MT", precio: 690, promo: { precio: 590, cantidad: 3 } },
+            { id: 374, nombre: "Papel Aluminio 7.5MT", precio: 790, promo: { precio: 699, cantidad: 3 } },
+            { id: 375, nombre: "Papel Alusa 30MT", precio: 890, promo: { precio: 790, cantidad: 3 } },
+            { id: 376, nombre: "Papel Alusa 300MT", precio: 4990 },
+            { id: 377, nombre: "Ampolleta Megabright", precio: 790, promo: { precio: 690, cantidad: 3 } },
+            { id: 378, nombre: "Bolsa Camiseta 28x35 (100 Unidades)", precio: 690 },
+            { id: 379, nombre: "Bolsa Camiseta 35x40 (100 Unidades)", precio: 890 },
+            { id: 380, nombre: "Bolsa Camiseta 40x50 (100 Unidades)", precio: 1690 },
+            { id: 381, nombre: "Bolsa Camiseta 50x60 (100 Unidades)", precio: 2890 },
+            { id: 382, nombre: "Velas Económicas", precio: 590 },
+            { id: 383, nombre: "Velas Larga Duración", precio: 990 },
+            { id: 384, nombre: "Velas Gigantes", precio: 1390 },
+            { id: 385, nombre: "Velas Pequeñas Winnex", precio: 490 },
+            { id: 386, nombre: "Velas Medianas Winnex", precio: 750 },
+            { id: 387, nombre: "Velas XL Winnex", precio: 1150 },
+            { id: 388, nombre: "Caja 20 Encendedores Ronson", precio: 4400 },
+            { id: 389, nombre: "Caja 40 Pilas Panasonic AAA", precio: 7990 },
+            { id: 390, nombre: "Caja 48 Pilas Panasonic AA", precio: 9600 },
+            { id: 391, nombre: "12 Pilas Panasonic AA", precio: 2750 },
+            { id: 392, nombre: "10 Pilas Panasonic AAA", precio: 2300 },
+            { id: 393, nombre: "2 Pilas Panasonic D", precio: 1500 },
+            { id: 394, nombre: "Pañuelos Desechables Elite (Pack 18)", precio: 2900 },
+            { id: 395, nombre: "Prestobarba Gillette 3", precio: 990 },
+            { id: 396, nombre: "Prestobarba Schick Quattro 4", precio: 990, promo: { precio: 890, cantidad: 3 } },
+            { id: 397, nombre: "Prestobarba Schick Xtreme 3", precio: 750 },
+            { id: 398, nombre: "Cloro 5L", precio: 1790 },
+            { id: 399, nombre: "Suavizante 2L", precio: 1850 },
+            { id: 400, nombre: "Limpia Pisos Red 5L", precio: 1790 },
+            { id: 401, nombre: "Betún Pasta Virginia", precio: 1590 },
+            { id: 402, nombre: "Betún Líquido Virginia", precio: 2450 },
+            { id: 403, nombre: "Pañal Adulto Cotidian G (20 Un)", precio: 13700, promo: { precio: 12990, cantidad: 3 } },
+            { id: 404, nombre: "Pañal Adulto Cotidian M (20 Un)", precio: 13700, promo: { precio: 12990, cantidad: 3 } },
+            { id: 405, nombre: "Toalla Húmeda Care Up Adultos", precio: 3490, promo: { precio: 3190, cantidad: 2 } },
+            { id: 406, nombre: "Apósitos Incontinencia Leve (20 Un)", precio: 3850 },
+            { id: 407, nombre: "Quitaesmalte Algabo", precio: 1250 }
+        ];
+
+        let carrito = {};
+
+        function renderizarProductos() {
+            const lista = document.getElementById("lista-productos");
+            productos.forEach(prod => {
+                carrito[prod.id] = 0;
+                
+                let etiquetaPromo = prod.promo ? 
+                    `<div class="alerta-descuento">
+                        🔔 <b>¡Aviso!</b> Agregando <b>${prod.promo.cantidad} unidades</b> o más, el precio bajará automáticamente a <b>$${prod.promo.precio.toLocaleString('es-CL')} c/u</b>.
+                    </div>` 
+                    : "";
+                
+                lista.innerHTML += `
+                    <div class="producto">
+                        <div class="producto-arriba">
+                            <div class="producto-izq">
+                                <img src="img/${prod.id}.jpg" class="foto-prod" onerror="this.style.display='none'">
+                                <div class="info-prod">
+                                    <strong>${prod.nombre}</strong><br>
+                                    <span class="precio-normal">Precio normal: $${prod.precio.toLocaleString('es-CL')} c/u</span>
+                                </div>
+                            </div>
+                            <div class="controles">
+                                <button class="btn-restar" onclick="cambiarCantidad(${prod.id}, -1)">-</button>
+                                <span id="cant-${prod.id}" style="font-weight:bold; min-width:24px; text-align:center;">0</span>
+                                <button onclick="cambiarCantidad(${prod.id}, 1)">+</button>
+                            </div>
+                        </div>
+                        ${etiquetaPromo}
+                    </div>
+                `;
+            });
+        }
+
+        function cambiarCantidad(id, cambio) {
+            if (carrito[id] + cambio >= 0) {
+                carrito[id] += cambio;
+                document.getElementById(`cant-${id}`).innerText = carrito[id];
+                actualizarTotales();
+            }
+        }
+
+        function actualizarTotales() {
+            let totalItems = 0;
+            let totalPrecio = 0;
+            
+            productos.forEach(prod => {
+                let cant = carrito[prod.id];
+                if (cant > 0) {
+                    totalItems += cant;
+                    
+                    let precioAplicar = prod.precio;
+                    if (prod.promo && cant >= prod.promo.cantidad) {
+                        precioAplicar = prod.promo.precio;
+                    }
+                    
+                    totalPrecio += cant * precioAplicar;
+                }
+            });
+            
+            document.getElementById("total-items").innerText = totalItems;
+            document.getElementById("total-precio").innerText = totalPrecio.toLocaleString('es-CL');
+            document.getElementById("modal-total").innerText = totalPrecio.toLocaleString('es-CL');
+        }
+
+        function abrirCheckout() { 
+            document.getElementById("modal-checkout").style.display = "block"; 
+            document.body.style.overflow = "hidden";
+        }
+        function cerrarCheckout() { 
+            document.getElementById("modal-checkout").style.display = "none"; 
+            document.body.style.overflow = "auto";
+        }
+
+        function enviarWhatsApp() {
+            const cliente = document.getElementById("nombre-cliente").value || "Cliente Sin Nombre";
+            const numeroWhatsApp = "569XXXXXXXX"; // <-- RECUERDA PONER TU NÚMERO AQUÍ
+            
+            let texto = `🧾 *NUEVO PEDIDO MAYORISTA* 🧾%0A`;
+            texto += `👤 *Cliente:* ${cliente}%0A%0A`;
+            texto += `*Detalle:*%0A`;
+            
+            let totalFinal = 0;
+            let itemsAgregados = false;
+            
+            productos.forEach(prod => {
+                let cant = carrito[prod.id];
+                if (cant > 0) {
+                    itemsAgregados = true;
+                    
+                    let precioAplicar = prod.precio;
+                    let notaMayor = "";
+                    
+                    if (prod.promo && cant >= prod.promo.cantidad) {
+                        precioAplicar = prod.promo.precio;
+                        notaMayor = " *(Promo Mayorista)*";
+                    }
+
+                    let subtotal = cant * precioAplicar;
+                    texto += `📦 ${cant} x ${prod.nombre} a $${precioAplicar.toLocaleString('es-CL')} c/u${notaMayor} = $${subtotal.toLocaleString('es-CL')}%0A`;
+                    totalFinal += subtotal;
+                }
+            });
+
+            if (!itemsAgregados) {
+                alert("Debes agregar al menos un producto al carrito.");
+                return;
+            }
+            
+            texto += `%0A💰 *TOTAL A PAGAR:* $${totalFinal.toLocaleString('es-CL')}%0A`;
+            texto += `_Comprobante de transferencia pendiente._`;
+
+            const url = `https://wa.me/${numeroWhatsApp}?text=${texto}`;
+            window.open(url, '_blank');
+        }
+
+        renderizarProductos();
+    </script>
+</body>
+</html>
