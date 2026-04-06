@@ -100,14 +100,22 @@
                 <input type="text" id="direccion-cliente" placeholder="Ej: Calle Los Alerces 123">
             </div>
 
-            <span class="etiqueta-form">Método de Pago:</span>
-            <select id="tipo-pago" onchange="mostrarDatosBancarios()">
-                <option value="Efectivo">Efectivo al entregar/retirar</option>
-                <option value="Transferencia">Transferencia Bancaria</option>
-                <option value="Débito">Tarjeta de Débito (En local)</option>
+            <span class="etiqueta-form">Horario preferido:</span>
+            <select id="horario-entrega">
+                <option value="Lo antes posible">Lo antes posible</option>
+                <option value="Mañana (09:30 - 12:30)">Mañana (09:30 - 12:30)</option>
+                <option value="Tarde (15:30 - 18:30)">Tarde (15:30 - 18:30)</option>
+                <option value="Sábado Mañana (10:30 - 13:30)">Sábado Mañana (10:30 - 13:30)</option>
             </select>
 
-            <div id="datos-banco" class="seccion-pago" style="display:none;">
+            <span class="etiqueta-form">Método de Pago:</span>
+            <select id="tipo-pago" onchange="mostrarDatosBancarios()">
+                <option value="Transferencia">Transferencia Bancaria</option>
+                <option id="op-efectivo" value="Efectivo">Efectivo al entregar/retirar</option>
+                <option id="op-debito" value="Débito">Tarjeta de Débito (En local)</option>
+            </select>
+
+            <div id="datos-banco" class="seccion-pago" style="display:block;">
                 <strong>💳 Datos para Transferencia:</strong><br><br>
                 - <b>Banco BICE</b><br>
                 - Cuenta Corriente: 123456789<br>
@@ -586,13 +594,11 @@
             if (carrito[id] + cambio >= 0) {
                 carrito[id] += cambio;
                 
-                // Actualiza el número en el catálogo principal
                 let contador = document.getElementById(`cant-${id}`);
                 if (contador) contador.innerText = carrito[id];
                 
                 actualizarTotales();
                 
-                // Si el cliente tiene el modal del carrito abierto, que se actualice en vivo
                 if(document.getElementById("modal-checkout").style.display === "block") {
                     renderizarDetalleCarrito();
                 }
@@ -658,7 +664,6 @@
                     let subtotalProd = cant * precioAplicar;
                     subtotal += subtotalProd;
                     
-                    // Aquí se arman los botones + y - adentro del resumen
                     detalle.innerHTML += `<div class="item-carrito">
                         <div class="item-carrito-info">
                             <b>${cant}x</b> ${prod.nombre} <br>
@@ -673,10 +678,28 @@
             });
 
             let metodoEntrega = document.getElementById("tipo-entrega").value;
+            let selectPago = document.getElementById("tipo-pago");
+            let opEfectivo = document.getElementById("op-efectivo");
+            let opDebito = document.getElementById("op-debito");
+
+            // NUEVO: Bloqueo de efectivo/débito para despacho
             if (metodoEntrega === "despacho") {
                 document.getElementById("caja-direccion").style.display = "block";
+                opEfectivo.disabled = true;
+                opDebito.disabled = true;
+                opEfectivo.innerText = "Efectivo (Solo retiro en local)";
+                opDebito.innerText = "Tarjeta Débito (Solo retiro en local)";
+                
+                if(selectPago.value === "Efectivo" || selectPago.value === "Débito") {
+                    selectPago.value = "Transferencia";
+                    mostrarDatosBancarios();
+                }
             } else {
                 document.getElementById("caja-direccion").style.display = "none";
+                opEfectivo.disabled = false;
+                opDebito.disabled = false;
+                opEfectivo.innerText = "Efectivo al entregar/retirar";
+                opDebito.innerText = "Tarjeta de Débito (En local)";
             }
 
             let costoEnvio = 0;
@@ -734,17 +757,19 @@
 
             const cliente = document.getElementById("nombre-cliente").value || "Cliente Sin Nombre";
             const metodoEntrega = document.getElementById("tipo-entrega").value;
+            const horario = document.getElementById("horario-entrega").value;
             const metodoPago = document.getElementById("tipo-pago").value;
             
             let costoEnvio = (metodoEntrega === "despacho" && subtotal < 50000) ? 3000 : 0;
             let totalFinal = subtotal + costoEnvio;
             let direccion = document.getElementById("direccion-cliente").value || "Sin dirección ingresada";
 
-            const numeroWhatsApp = "569XXXXXXXX"; // <-- RECUERDA PONER TU NÚMERO AQUÍ
+            const numeroWhatsApp = "56984715828"; // <-- AQUÍ YA ESTÁ TU NÚMERO
             
             let texto = `🧾 *NUEVO PEDIDO MAYORISTA - LA TOTY* 🧾%0A%0A`;
             texto += `👤 *Cliente:* ${cliente}%0A`;
             texto += `🚚 *Entrega:* ${metodoEntrega === 'despacho' ? 'Despacho a domicilio' : 'Retiro en local'}%0A`;
+            texto += `🕒 *Horario:* ${horario}%0A`;
             
             if (metodoEntrega === 'despacho') {
                 texto += `📍 *Dirección:* ${direccion}%0A`;
