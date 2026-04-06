@@ -10,8 +10,17 @@
         
         .info-retiro { background-color: #e2e8f0; color: #1e293b; padding: 15px; border-radius: 8px; margin-bottom: 20px; text-align: left; font-size: 14px; border: 1px solid #cbd5e1; line-height: 1.5; }
         
-        .buscador { width: 100%; padding: 15px; font-size: 16px; border: 2px solid #3b5998; border-radius: 8px; margin-bottom: 20px; box-sizing: border-box; }
+        /* NUEVO: Contenedor Fijo para Buscador y Categorías */
+        .top-fijo { position: sticky; top: 0; background-color: #f4f4f9; z-index: 100; padding: 10px 0; border-bottom: 2px solid #ddd; margin-bottom: 15px; }
         
+        .buscador { width: 100%; padding: 15px; font-size: 16px; border: 2px solid #3b5998; border-radius: 8px; margin-bottom: 10px; box-sizing: border-box; }
+        
+        /* NUEVO: Estilos para Categorías */
+        .caja-categorias { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 5px; scrollbar-width: none; }
+        .caja-categorias::-webkit-scrollbar { display: none; }
+        .btn-categoria { background-color: #e2e8f0; color: #3b5998; border: 1px solid #cbd5e1; padding: 8px 16px; border-radius: 20px; font-size: 14px; font-weight: bold; white-space: nowrap; cursor: pointer; transition: all 0.2s; }
+        .btn-categoria.activo { background-color: #3b5998; color: white; border-color: #3b5998; }
+
         .producto { background: white; padding: 15px; margin-bottom: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); display: flex; flex-direction: column; }
         .producto-arriba { display: flex; justify-content: space-between; align-items: center; width: 100%; }
         .producto-izq { display: flex; align-items: center; width: 65%; }
@@ -52,7 +61,7 @@
 
     <div class="header">
         <h2 style="margin:0;">📦 Catálogo Mayorista</h2>
-        <p style="margin:5px 0 0 0; font-size: 14px;">El descuento por mayor se aplica automáticamente en el carrito</p>
+        <p style="margin:5px 0 0 0; font-size: 14px;">El descuento por mayor se aplica automáticamente</p>
     </div>
 
     <div class="info-retiro">
@@ -63,7 +72,18 @@
         <strong style="color:#d9534f;">⚠️ Pedido Mínimo Mayorista: $10.000</strong>
     </div>
 
-    <input type="text" id="buscador" class="buscador" placeholder="🔍 Buscar producto... (Ej: Jurel, Nivea)" onkeyup="filtrarProductos()">
+    <div class="top-fijo">
+        <input type="text" id="buscador" class="buscador" placeholder="🔍 Buscar producto... (Ej: Jurel, Nivea)" onkeyup="filtrarProductos()">
+        
+        <div class="caja-categorias" id="caja-categorias">
+            <button class="btn-categoria activo" onclick="filtrarCategoria('todo', this)">🛒 Todo</button>
+            <button class="btn-categoria" onclick="filtrarCategoria('despensa', this)">🥫 Abarrotes</button>
+            <button class="btn-categoria" onclick="filtrarCategoria('limpieza', this)">🧼 Aseo y Limpieza</button>
+            <button class="btn-categoria" onclick="filtrarCategoria('cuidado', this)">🧴 Cuidado Personal</button>
+            <button class="btn-categoria" onclick="filtrarCategoria('mascotas', this)">🐶 Mascotas</button>
+            <button class="btn-categoria" onclick="filtrarCategoria('congelados', this)">❄️ Congelados</button>
+        </div>
+    </div>
 
     <div id="lista-productos"></div>
 
@@ -126,6 +146,9 @@
             <p id="warning-minimo" class="alerta-minimo">⚠️ Faltan $<span id="falta-minimo">0</span> para el mínimo de compra ($10.000).</p>
 
             <button id="btn-enviar-ws" style="background-color: #25D366; width: 100%; padding: 15px; font-size: 16px; margin-bottom: 10px;" onclick="enviarWhatsApp()">✅ Terminar y Enviar Pedido</button>
+            
+            <button id="btn-descargar-pdf" style="background-color: #dc3545; width: 100%; padding: 15px; font-size: 16px; margin-bottom: 10px;" onclick="descargarCotizacion()">📄 Descargar Cotización (PDF)</button>
+            
             <button style="background-color: #6c757d; width: 100%; padding: 15px; font-size: 16px;" onclick="cerrarCheckout()">⬅️ Guardar y Seguir Comprando</button>
         </div>
     </div>
@@ -545,12 +568,13 @@
 
         function renderizarProductos() {
             const lista = document.getElementById("lista-productos");
+            lista.innerHTML = "";
             productos.forEach(prod => {
-                carrito[prod.id] = 0;
+                if (carrito[prod.id] === undefined) carrito[prod.id] = 0;
                 
                 let etiquetaPromo = prod.promo ? 
                     `<div class="alerta-descuento">
-                        🔔 <b>¡Aviso!</b> Agregando <b>${prod.promo.cantidad} unidades</b> o más, el precio bajará automáticamente a <b>$${prod.promo.precio.toLocaleString('es-CL')} c/u</b>.
+                        🔔 <b>¡Aviso!</b> Agregando <b>${prod.promo.cantidad} unidades</b> o más, el precio bajará a <b>$${prod.promo.precio.toLocaleString('es-CL')} c/u</b>.
                     </div>` 
                     : "";
                 
@@ -566,7 +590,7 @@
                             </div>
                             <div class="controles">
                                 <button class="btn-restar" onclick="cambiarCantidad(${prod.id}, -1)">-</button>
-                                <span id="cant-${prod.id}" style="font-weight:bold; min-width:24px; text-align:center;">0</span>
+                                <span id="cant-${prod.id}" style="font-weight:bold; min-width:24px; text-align:center;">${carrito[prod.id]}</span>
                                 <button onclick="cambiarCantidad(${prod.id}, 1)">+</button>
                             </div>
                         </div>
@@ -576,13 +600,51 @@
             });
         }
 
+        // NUEVO: Lógica de Categorías e Inventario Inteligente
+        let categoriaActual = 'todo';
+
+        function filtrarCategoria(categoria, botonClickeado) {
+            categoriaActual = categoria;
+            
+            let botones = document.getElementsByClassName('btn-categoria');
+            for(let i = 0; i < botones.length; i++) {
+                botones[i].classList.remove('activo');
+            }
+            botonClickeado.classList.add('activo');
+
+            ejecutarFiltroCombinado();
+        }
+
         function filtrarProductos() {
-            let filtro = document.getElementById("buscador").value.toLowerCase();
+            ejecutarFiltroCombinado();
+        }
+
+        function ejecutarFiltroCombinado() {
+            let filtroTexto = document.getElementById("buscador").value.toLowerCase();
             let productosDiv = document.getElementsByClassName("producto");
+            
+            const mapaCategorias = {
+                'limpieza': ['cloro', 'detergente', 'lavalozas', 'virutilla', 'nova', 'confort', 'suan', 'elite', 'limpia', 'cera', 'basura', 'esponja', 'trapero', 'cif', 'igenix', 'escobillón', 'abolengo', 'óptimo', 'insecticida', 'raid', 'pastilla', 'suavizante'],
+                'cuidado': ['shampoo', 'desodorante', 'toallas', 'jabón', 'talco', 'cotonitos', 'cepillo', 'pasta', 'prestobarba', 'ladysoft', 'pañales', 'cotidian', 'acondicionador', 'gillette', 'sabanilla', 'apósitos'],
+                'mascotas': ['perro', 'gato', 'master dog', 'champion', 'pedigree', 'whiskas', 'arena'], 
+                'congelados': ['hamburguesa', 'papas', 'nuggets', 'helado', 'casata', 'mega', 'chocolito', 'danky', 'crazy'],
+                'despensa': ['arroz', 'fideos', 'aceite', 'salsa', 'jurel', 'atún', 'azúcar', 'sal', 'té', 'café', 'leche', 'harina', 'levadura', 'jugo', 'bebida', 'queso', 'mantequilla', 'chorito', 'vinagre', 'caldo', 'sopa', 'lenteja', 'poroto', 'arveja', 'champiñon', 'palmito', 'durazno', 'stevia', 'chancaca', 'maicena', 'avena', 'cereal', 'snack', 'lays', 'dorito', 'maní', 'mayonesa', 'ketchup', 'mostaza', 'galleta', 'dulce', 'agua', 'vienesa', 'yogurt', 'flan', 'jalea', 'paté', 'salame', 'manjar', 'pan', 'chorizo', 'lasaña']
+            };
             
             for (let i = 0; i < productosDiv.length; i++) {
                 let nombre = productosDiv[i].getElementsByTagName("strong")[0].innerText.toLowerCase();
-                if (nombre.includes(filtro)) {
+                
+                let pasaCategoria = false;
+                if (categoriaActual === 'todo') {
+                    pasaCategoria = true;
+                } else {
+                    let palabrasClave = mapaCategorias[categoriaActual] || [];
+                    pasaCategoria = palabrasClave.some(palabra => nombre.includes(palabra));
+                }
+
+                let pasaTexto = nombre.includes(filtroTexto);
+
+                if (pasaCategoria && pasaTexto) {
                     productosDiv[i].style.display = "flex";
                 } else {
                     productosDiv[i].style.display = "none";
@@ -682,7 +744,6 @@
             let opEfectivo = document.getElementById("op-efectivo");
             let opDebito = document.getElementById("op-debito");
 
-            // NUEVO: Bloqueo de efectivo/débito para despacho
             if (metodoEntrega === "despacho") {
                 document.getElementById("caja-direccion").style.display = "block";
                 opEfectivo.disabled = true;
@@ -718,6 +779,7 @@
             let totalFinal = subtotal + costoEnvio;
 
             const btnEnviar = document.getElementById("btn-enviar-ws");
+            const btnPdf = document.getElementById("btn-descargar-pdf");
             const warningMinimo = document.getElementById("warning-minimo");
             
             if (subtotal > 0 && subtotal < 10000) {
@@ -735,11 +797,117 @@
                 detalle.innerHTML = "<p style='text-align:center; color: #777;'>Tu carrito está vacío.</p>";
                 btnEnviar.disabled = true;
                 btnEnviar.style.backgroundColor = "#ccc";
+                btnPdf.disabled = true;
+                btnPdf.style.backgroundColor = "#ccc";
+            } else {
+                btnPdf.disabled = false;
+                btnPdf.style.backgroundColor = "#dc3545";
             }
 
             document.getElementById("modal-subtotal").innerText = subtotal.toLocaleString('es-CL');
             document.getElementById("modal-envio").innerHTML = textoEnvio;
             document.getElementById("modal-total-final").innerText = totalFinal.toLocaleString('es-CL');
+        }
+
+        // NUEVO: Función para Generar Boleta/Cotización en PDF
+        function descargarCotizacion() {
+            let subtotal = 0;
+            let itemsHTML = '';
+            
+            productos.forEach(prod => {
+                let cant = carrito[prod.id];
+                if (cant > 0) {
+                    let precioAplicar = prod.promo && cant >= prod.promo.cantidad ? prod.promo.precio : prod.precio;
+                    let sub = cant * precioAplicar;
+                    subtotal += sub;
+                    itemsHTML += `<tr>
+                        <td style="text-align:center;">${cant}</td>
+                        <td>${prod.nombre}</td>
+                        <td style="text-align:right;">$${precioAplicar.toLocaleString('es-CL')}</td>
+                        <td style="text-align:right;">$${sub.toLocaleString('es-CL')}</td>
+                    </tr>`;
+                }
+            });
+
+            if (subtotal === 0) return;
+
+            const cliente = document.getElementById("nombre-cliente").value || "Cliente Sin Nombre";
+            const metodoEntrega = document.getElementById("tipo-entrega").value;
+            const horario = document.getElementById("horario-entrega").value;
+            
+            let costoEnvio = (metodoEntrega === "despacho" && subtotal < 50000) ? 3000 : 0;
+            let totalFinal = subtotal + costoEnvio;
+            let fecha = new Date().toLocaleDateString('es-CL');
+            let hora = new Date().toLocaleTimeString('es-CL');
+
+            let ventana = window.open('', '_blank');
+            ventana.document.write(`
+                <html>
+                <head>
+                    <title>Cotización La Toty - ${cliente}</title>
+                    <style>
+                        body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; padding: 30px; color: #333; }
+                        .cabecera { text-align: center; border-bottom: 2px solid #3b5998; padding-bottom: 10px; margin-bottom: 20px; }
+                        h1 { color: #3b5998; margin: 0; }
+                        .info-cliente { margin-bottom: 20px; line-height: 1.6; }
+                        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+                        th, td { border: 1px solid #ddd; padding: 12px; }
+                        th { background-color: #f4f4f9; color: #333; }
+                        .totales { width: 300px; float: right; border: 1px solid #ddd; padding: 15px; background: #f9f9f9; border-radius: 5px; }
+                        .totales p { margin: 5px 0; display: flex; justify-content: space-between; font-size: 16px;}
+                        .total-final { font-weight: bold; font-size: 20px; color: #d9534f; border-top: 2px solid #ddd; padding-top: 10px; margin-top: 10px;}
+                        .pie { clear: both; text-align: center; margin-top: 50px; font-size: 12px; color: #777; }
+                    </style>
+                </head>
+                <body>
+                    <div class="cabecera">
+                        <h1>📦 Comercializadora La Toty</h1>
+                        <p>Cotización Venta Mayorista</p>
+                    </div>
+                    
+                    <div class="info-cliente">
+                        <strong>Fecha de emisión:</strong> ${fecha} a las ${hora}<br>
+                        <strong>Cliente:</strong> ${cliente}<br>
+                        <strong>Modalidad:</strong> ${metodoEntrega === 'despacho' ? 'Despacho a Domicilio' : 'Retiro en Local'}<br>
+                        <strong>Horario Estimado:</strong> ${horario}
+                    </div>
+
+                    <table>
+                        <thead>
+                            <tr>
+                                <th width="10%">Cant.</th>
+                                <th width="50%">Producto</th>
+                                <th width="20%">Precio Unit.</th>
+                                <th width="20%">Subtotal</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${itemsHTML}
+                        </tbody>
+                    </table>
+
+                    <div class="totales">
+                        <p><span>Subtotal:</span> <span>$${subtotal.toLocaleString('es-CL')}</span></p>
+                        <p><span>Costo de Envío:</span> <span>$${costoEnvio.toLocaleString('es-CL')}</span></p>
+                        <p class="total-final"><span>Total a Pagar:</span> <span>$${totalFinal.toLocaleString('es-CL')}</span></p>
+                    </div>
+
+                    <div class="pie">
+                        <p>Esta cotización es un documento informativo y no asegura reserva de stock hasta confirmación vía WhatsApp.</p>
+                        <p>Gracias por preferir a La Toty.</p>
+                    </div>
+
+                    <script>
+                        window.onload = function() {
+                            window.print();
+                            // Opcional: Cerrar la ventana después de imprimir en PC
+                            // setTimeout(function(){ window.close(); }, 500);
+                        }
+                    <\/script>
+                </body>
+                </html>
+            `);
+            ventana.document.close();
         }
 
         function enviarWhatsApp() {
@@ -764,7 +932,7 @@
             let totalFinal = subtotal + costoEnvio;
             let direccion = document.getElementById("direccion-cliente").value || "Sin dirección ingresada";
 
-            const numeroWhatsApp = "56984715828"; // <-- AQUÍ YA ESTÁ TU NÚMERO
+            const numeroWhatsApp = "56984715828";
             
             let texto = `🧾 *NUEVO PEDIDO MAYORISTA - LA TOTY* 🧾%0A%0A`;
             texto += `👤 *Cliente:* ${cliente}%0A`;
